@@ -1,6 +1,4 @@
-// AudioPlayer.js
-// backgroundImage="url('https://images.pexels.com/photos/3721941/pexels-photo-3721941.jpeg?cs=srgb&dl=pexels-daniel-reche-3721941.jpg&fm=jpg')" // Replace with your image path
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Input,
   Box,
@@ -8,12 +6,16 @@ import {
   Button,
   UnorderedList,
   ListItem,
+  Progress,
 } from '@chakra-ui/react';
+
 const AudioPlayer = () => {
   const [playlist, setPlaylist] = useState([]);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [audio] = useState(new window.Audio()); // Use window.Audio to avoid conflicts
   const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const progressBarRef = useRef(null);
 
   useEffect(() => {
     // Load playlist from localStorage on component mount
@@ -47,6 +49,24 @@ const AudioPlayer = () => {
     localStorage.setItem('lastPlaybackPosition', audio.currentTime.toString());
     localStorage.setItem('isPlaying', isPlaying.toString());
   }, [playlist, currentTrackIndex, audio, isPlaying]);
+
+  useEffect(() => {
+    // Update the progress bar based on the current playback position
+    const updateProgressBar = () => {
+      if (audio.duration > 0) {
+        const calculatedProgress = (audio.currentTime / audio.duration) * 100;
+        setProgress(calculatedProgress);
+      }
+    };
+
+    // Add an event listener to update the progress bar during playback
+    audio.addEventListener('timeupdate', updateProgressBar);
+
+    // Clean up the event listener when the component unmounts
+    return () => {
+      audio.removeEventListener('timeupdate', updateProgressBar);
+    };
+  }, [audio]);
 
   const handleFileChange = (event) => {
     const files = event.target.files;
@@ -118,75 +138,94 @@ const AudioPlayer = () => {
     }
   };
 
+  const handleProgressBarClick = (event) => {
+    const clickedPosition = event.nativeEvent.offsetX;
+    const progressBarWidth = progressBarRef.current.clientWidth;
+    const newProgress = (clickedPosition / progressBarWidth) * 100;
+
+    setProgress(newProgress);
+
+    const newPlaybackPosition = (newProgress / 100) * audio.duration;
+    audio.currentTime = newPlaybackPosition;
+  };
+
   return (
     <Box
-    p={4}
-    maxW="100%"
-    m="auto"
-    backgroundImage="url('https://images.pexels.com/photos/3721941/pexels-photo-3721941.jpeg?cs=srgb&dl=pexels-daniel-reche-3721941.jpg&fm=jpg')" // Replace with your image path
-    backgroundSize="cover"
-    backgroundPosition="center"
-    height="100vh" // Set height to 100% of the viewport height
-    display="flex"
-    flexDirection="column"
-    alignItems="center"
-    justifyContent="center"
-  >
-    <Box
-      borderRadius="10px"
       p={4}
-      boxShadow="md"
-      mb={4}
+      maxW="100%"
+      m="auto"
+      backgroundImage="url('https://images.pexels.com/photos/3721941/pexels-photo-3721941.jpeg?cs=srgb&dl=pexels-daniel-reche-3721941.jpg&fm=jpg')"
+      backgroundSize="cover"
+      backgroundPosition="center"
+      height="100vh"
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
     >
-      <Input type="file" accept=".mp3" multiple onChange={handleFileChange} mb={4} />
+      <Box
+        borderRadius="10px"
+        p={4}
+        boxShadow="md"
+        mb={4}
+      >
+        <Input type="file" accept=".mp3" multiple onChange={handleFileChange} mb={4} />
 
-      {playlist.length > 0 ? (
-        <Box>
-          <Text fontSize="xl" fontWeight="bold" color="red" mb={2}>
-            Playlist
+        {playlist.length > 0 ? (
+          <Box>
+            <Text fontSize="xl" fontWeight="bold" color="red" mb={2}>
+              Playlist
+            </Text>
+            <UnorderedList>
+              {playlist.map((track, index) => (
+                <ListItem
+                  key={index}
+                  cursor="pointer"
+                  color="white"
+                  onClick={() => playTrack(index)}
+                  _hover={{ color: 'blue.500' }}
+                >
+                  {track.name}
+                </ListItem>
+              ))}
+            </UnorderedList>
+          </Box>
+        ) : (
+          <Text fontSize="lg" color="red" mt={4}>
+            No audio files in the playlist.
           </Text>
-          <UnorderedList>
-            {playlist.map((track, index) => (
-              <ListItem
-                key={index}
-                cursor="pointer"
-                color="white"
-                onClick={() => playTrack(index)}
-                _hover={{ color: 'blue.500' }}
-              >
-                {track.name}
-              </ListItem>
-            ))}
-          </UnorderedList>
+        )}
+      </Box>
+
+      {playlist.length > 0 && (
+        <Box
+          borderRadius="10px"
+          p={4}
+          boxShadow="md"
+          mt={4}
+          maxW="400px"
+          w="100%"
+        >
+          <Text fontSize="xl" fontWeight="bold" color="green">
+            Now Playing
+          </Text>
+          <Text color="white">{playlist[currentTrackIndex] && playlist[currentTrackIndex].name}</Text>
+          <Button onClick={handlePlayPause} colorScheme="teal" mt={2}>
+            {isPlaying ? 'Pause' : 'Play'}
+          </Button>
+          <Box
+            mt={2}
+            onClick={handleProgressBarClick}
+            ref={progressBarRef}
+            style={{ cursor: 'pointer' }}
+          >
+            <Progress value={progress} colorScheme="teal" />
+          </Box>
         </Box>
-      ) : (
-        <Text fontSize="lg" color="red" mt={4}>
-          No audio files in the playlist.
-        </Text>
       )}
+
+      <audio onEnded={handleEnded} />
     </Box>
-
-    {playlist.length > 0 && (
-     <Box
-     borderRadius="10px"
-     p={4}
-     boxShadow="md"
-     mt={4}
-     maxW="400px" // Set a maximum width for the box
-     w="100%" // Make the box 100% width of its container
-   >
-     <Text fontSize="xl" fontWeight="bold" color="green">
-       Now Playing
-     </Text>
-     <Text color="white">{playlist[currentTrackIndex] && playlist[currentTrackIndex].name}</Text>
-     <Button onClick={handlePlayPause} colorScheme="teal" mt={2}>
-       {isPlaying ? 'Pause' : 'Play'}
-     </Button>
-   </Box>
-    )}
-
-    <audio onEnded={handleEnded} />
-  </Box>
   );
 };
 
