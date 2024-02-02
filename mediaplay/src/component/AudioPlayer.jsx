@@ -219,7 +219,7 @@ const AudioPlayer = () => {
             ref={progressBarRef}
             style={{ cursor: 'pointer' }}
           >
-            <Progress value={progress} colorScheme="teal" />
+            <Progress value={progress} borderRadius="30%" colorScheme="teal" />
           </Box>
         </Box>
       )}
